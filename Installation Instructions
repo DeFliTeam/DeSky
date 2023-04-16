@@ -1,3 +1,89 @@
 # Download 
 
-Raspbian DeSky Image File- 
+Raspbian DeSky Image File- https://github.com/DeFliTeam/DeSky/blob/main/Defli-desky.zip 
+This image has the DeSky setup script installed, the SSH server enabled and all required packages preinstalled. 
+
+Follow the usual Rapbian flashing instructions https://www.raspberrypi.org/documentation/installation/installing-images/README.md and boot your Pi 
+
+# Console Access 
+
+Getting console access
+
+You can log in the Raspberry Pi by connecting it to a keyboard and monitor or through network via an SSH connection.
+Keyboard and monitor
+
+Once your Raspberry Pi is booted, log in with userID and password that you set during the imaging process.
+
+Ethernet
+
+If you are using wired Ethernet you should get connectivity right away. You just need to find the IP address of Raspberry Pi (e.g. in your router management interface). Log in with SSH using username you set during the image writing process. "pi" password "raspberry", in this example:
+
+$ ssh pi@192.168.1.2 
+
+
+
+If your network supports zeroconf, then you can use the hostname of your Pi:  
+
+$ ssh pi@raspberrypi.local
+
+# Pre-boot wireless configuration 
+
+If neither keyboard/monitor, nor a wired Ethernet are available, you can set up a WiFi connection before boot by mounting the boot partition of the flashed SD card and editing files directly. Note your OS may mount boot partition in a different location. Windows users have line ending problems. Suggested actions: 
+
+$ $EDITOR /media/Raspbian_SatNOGS-boot/wpa_supplicant.conf 
+
+contents: (note key_mgmt options include NONE, WPA-PSK, WPA-EAP)  
+
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+   update_config=1
+   country=US
+   
+   network={
+       ssid="NETWORK_NAME"
+       psk="password"
+       key_mgmt=WPA-PSK
+   }
+   
+   # Pre-boot user creation
+   
+   The latest version of Raspberry Pi OS, of which the SatNOGS image is based on, does not have the "pi" user already upon first boot.
+
+If you wish to login using ssh upon the first boot with the prior default username / password of "pi" / "raspberry", then:
+
+    Create the file userconf.txt in the root of the boot partition of the uSD card.
+    Its contents should be the single line:
+        pi:$6$/XOZsG1X0IAbhXB0$wYZHRkvib0SUKQA3KVAxofPR.JsFAbI2NCue2znGvhRsQobVdllFXyQZ7fMSvAoyEj8MfHtkMeSZT7IRIixg01
+        (the format is username:encrypted-password)
+
+For more information about this file, see: Raspberry Pi Documentation - Configuration - Setting up a Headless Raspberry Pi - Configuring a User
+
+# Configuration 
+
+Raspberry Pi Setup
+
+If you used the advance settings during imaging, this step can be skipped.
+
+Once your Raspberry Pi is booted, log in with the username you set up during the imaging process and run: 
+$ sudo raspi-config
+
+You will want to be sure to do the following:
+
+    Set a strong, unique password
+    Change localization settings:
+        by default the rpi locale is configured for EN-GB, change as appropriate (ie: to EN_US.UTF-8)
+        set timezone (we recommend UTC so your logs match the times in Network; UTC is under the 'none of the above' submenu)
+        set keyboard layout, again this is defaulting to a UK layout
+        set wifi country
+        expand filesystem (under the Advanced menu)
+    Configure network or WiFi (see this doc for network configuration instructions)
+    Finish and reboot 
+    
+# DeSky Setup 
+
+SSH to the Raspberry Pi with userID you set during imaging password. 
+
+Follow Desky Client Setup instructions to configure the system. 
+
+
+
+
