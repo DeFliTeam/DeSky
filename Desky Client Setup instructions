@@ -1,0 +1,132 @@
+# Initial Setup 
+
+sudo apt update 
+sudo apt upgrade 
+sudo apt purge needrestart 
+
+After the first boot of the system, packages and the configuration tool itself must be updated. Follow the Updating instruction found below.  
+
+To configure a DeFly Client system: 
+
+    SSH into the system and run sudo satnogs-setup; this will bring up the configuration menu
+    Set all options in Basic Configuration (see below)
+    Select Apply and the Raspberry Pi will configure itself; this may take some time
+    Select Back to exit 
+    
+# Basic Configuration 
+
+DEFLY_API_TOKEN 
+The API token assigned to your ground station on the DeFly Network website, please don’t share your api key as this can give access to anyone to upload and change things in network related to your station and its observations.
+
+
+To find your API token, log in to network.desky.org, click on the user icon at the top right corner and then click on the "Dashboard" option. On the top of the dashboard page right under the user icon click the button "API key" to show your API token. 
+
+DEFLY_SOAPY_RX_DEVICE
+If you are using an RTL-SDR, this is driver=rtlsdr. For other devices tested configurations can be found at Software_Defined_Radio.
+
+
+See pothosware/SoapyRTLSDR/wiki#modules for other SDR modules (linked in the navigation bar at the right side of the page). If multiple devices are attached to your station you should also specify the serial of the desired device here, e.g. driver=uhd,serial=3164495.  
+
+DEFLY_ANTENNA 
+If you are using an RTL-SDR, this is RX. For other devices tested configurations can be found at https://wiki.satnogs.org/Software_Defined_Radio.
+
+
+If your device is not listed there yet, use SoapySDRUtil --probe 2>&1| grep Antennas to get available antennas. 
+
+SATNOGS_RX_SAMP_RATE 
+Specify the receiver sampling rate. Recommended value for RTL-SDR: 2.048e6 (for 2Msps), other devices will need different sample rates described at Software_Defined_Radio .
+
+
+The command SoapySDRUtil --probe 2>&1 | grep Sample can be used to find all valid sample rates. 
+
+DEFLY_RF_GAIN
+RF Gain value for your SDR hardware.
+Run SoapySDRUtil --probe to see all possible gain values for your hardware. Example: For RTL-SDR without pre-amp, 32.8 is a good starting value. Follow https://wiki.satnogs.org/Omnidirectional_Station_How_To#Setting_the_gain to find a good gain value. 
+
+DEFLY_STATION_ELEV
+The height of your ground station above sea level in metres.  
+
+DEFLY_STATION_ID 
+The UUID assigned to your station in the DeSky Network site when the groundstation was created. 
+
+DEFLY_STATION_LAT 
+The latitude of your station. North is positive, south is negative. 
+
+SATNOGS_STATION_LON 
+The longitude of your station. East is positive, west is negative. 
+
+# Updating DeFly Client Software 
+
+To update DEFly software, including the configuration tool itself:
+
+    SSH into the system and (re-)run sudo satnogs-setup; this will bring up the configuration menu
+    Select Update to update the configuration tool and all distribution packages to the latest
+    If you are prompted for a reboot during the upgrade, once the upgrade is finished, select Reboot, SSH back into the system and re-run satnogs-setup to continue to the next step
+    Select Apply and the Raspberry Pi will update itself; this may take some time
+    Before exit, check at the top that you have the latest defly-client and gr-satnogs versions
+    Select Back to exit
+    
+ # Verification of correct installation 
+ 
+ $ systemctl status defly-client 
+ 
+ You should see an output that looks like this: 
+ 
+ defly-client.service - defly client 
+ 
+  Loaded: loaded (/etc/systemd/system/defly-client.service; enabled; vendor preset: enabled)
+  Active: active (running) since Wed 2020-03-04 19:30:56 GMT; 6min ago
+Main PID: 6309 (defly-client)
+   Tasks: 11 (limit: 2200)
+  Memory: 37.9M
+  CGroup: /system.slice/defly-client.service
+          └─6309 /var/lib/satnogs/bin/python3 /var/lib/defly/bin/defly-client 
+          
+  
+Mar 04 19:30:56 raspberrypi systemd[1]: Started SatNOGS client.
+
+# Test Observation 
+
+    Navigate your ground station page in the Network Environment (user name -> "My Profile" -> click on the name of your ground station).
+    Select the "Upcoming passes" tab.
+    Look for a pass with a "schedule" button that isn't greyed out, and click it. Ensure it is a good (high) pass of an operational satellite (check the color bar on the satellite)
+    In the "New Observation" page that comes up, click the "Calculate" button, then click "Schedule".
+    You should now see a page for that observation; in the "Waterfall" tab, you should see "Waiting for waterfall".
+    You can also schedule multiple observations at once for a single satellite via the "Observation new page". 
+    
+ Now SSH to your ground station computer and run these steps:  
+ 
+ Follow the defly-client logs. Depending on your setup, this might be done with journalctl -f -u defly-client.service, or tail -F /var/log/supervisor/defly.log
+Before the observation is scheduled to start, you should see your client wake up once per minute to check for new jobs:
+
+Oct 02 00:16:02 raspberrypi satnogs-client[10124]: 2017-10-02 00:16:02,477 - satnogsclient - DEBUG - Opening TCP socket: 127.0.0.1:5011
+Oct 02 00:16:02 raspberrypi satnogs-client[10124]: 2017-10-02 00:16:02,479 - satnogsclient - DEBUG - Sending message: [{"origin": "network", "transmitter": "uXJ8NQNcH8b9osRc
+Oct 02 00:16:02 raspberrypi satnogs-client[10124]: 2017-10-02 00:16:02,488 - apscheduler.executors.default - INFO - Job "get_jobs (trigger: interval[0:01:00], next run at: 2
+Oct 02 00:16:59 raspberrypi satnogs-client[10124]: 2017-10-02 00:16:59,615 - apscheduler.executors.default - INFO - Running job "get_jobs (trigger: interval[0:01:00], next r
+Oct 02 00:16:59 raspberrypi satnogs-client[10124]: 2017-10-02 00:16:59,661 - apscheduler.executors.default - INFO - Running job "post_data (trigger: interval[0:02:00], next 
+Oct 02 00:16:59 raspberrypi satnogs-client[10124]: 2017-10-02 00:16:59,668 - apscheduler.executors.default - INFO - Job "post_data (trigger: interval[0:02:00], next run at: 
+Oct 02 00:17:00 raspberrypi satnogs-client[10124]: 2017-10-02 00:17:00,906 - satnogsclient - DEBUG - Opening TCP socket: 127.0.0.1:5011
+Oct 02 00:17:00 raspberrypi satnogs-client[10124]: 2017-10-02 00:17:00,908 - satnogsclient - DEBUG - Sending message: [{"origin": "network", "transmitter": "uXJ8NQNcH8b9osRc
+Oct 02 00:17:00 raspberrypi satnogs-client[10124]: 2017-10-02 00:17:00,912 - apscheduler.executors.default - INFO - Job "get_jobs (trigger: interval[0:01:00], next run at: 2
+
+At the scheduled time for the observation, you should see the client kick off the observation: 
+
+Oct 02 00:18:00 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:00,774 - satnogsclient - DEBUG - Opening TCP socket: 127.0.0.1:5011
+Oct 02 00:18:00 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:00,776 - satnogsclient - DEBUG - Sending message: [{"origin": "network", "transmitter": "uXJ8NQNcH8b9osRc
+Oct 02 00:18:00 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:00,781 - apscheduler.executors.default - INFO - Job "get_jobs (trigger: interval[0:01:00], next run at: 2
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,022 - apscheduler.executors.default - INFO - Running job "spawn_observer (trigger: date[2017-10-02 00:
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,082 - satnogsclient - DEBUG - Opening TCP socket: 127.0.0.1:4533
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,109 - satnogsclient - DEBUG - Sending message: p
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,110 - satnogsclient - DEBUG - Received message: 0.000000
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 0.000000
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,111 - satnogsclient - DEBUG - Opening TCP socket: 127.0.0.1:4532
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,115 - satnogsclient - DEBUG - Sending message: P 188.276951189 -0.0155264223734
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,119 - satnogsclient - DEBUG - Received message: RPRT -1
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,143 - satnogsclient - DEBUG - Sending message: F 436038107
+Oct 02 00:18:22 raspberrypi satnogs-client[10124]: 2017-10-02 00:18:22,144 - satnogsclient - DEBUG - Received message: RPRT 0
+
+    After the observation is over, you should see the client submit the data to the DeSky network
+
+In the DeSky Stage Environment, refresh the Observation page. You should now see a waterfall plot for your data.
+
+If that all worked -- congratulations! You've just successfully completed your first DeSky observation. 
