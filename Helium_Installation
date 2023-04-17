@@ -1,0 +1,193 @@
+# Install DeSky Software to Helium Hotspot 
+
+Installing Image on Linux 
+Unzip the downloaded file: Defli-desky.zip 
+
+Figure out which device is the SD card. SD cards are usually start with mmcblk.
+sudo lsblk 
+
+Write the image. This will take a while. Make sure you don't overwrite your host OS if using Dual Mining
+sudo dd if=<latest_image_date>-Raspbian-desky-lite.img of=/dev/mmcblk0 
+
+
+Installing Image on Linux/Windows/MacOS (using Rasperry Pi Imager)
+
+    Download the latest version of Raspberry Pi Imager- https://www.raspberrypi.com/software/
+    Connect an SD card reader with the SD card inside
+    Open Raspberry Pi Imager and choose the previously downloaded image from "Choose OS > Use custom > Defly-desky.zip"
+    Review your selections and click Write button to begin writing data to the SD card. 
+    
+ 
+# Software Configuration 
+
+Registering the station 
+
+You can add your new ground station here (www.network.desky.org). When following the link it will ask you to login. Either use your existing account or register a new one.
+
+    Station name, this is the UUID generated when creating your account
+    Location:
+        Latitude (e.g., 38.0169)
+        Longitude (e.g., 23.7312)
+        Altitude above WGS84 in Meters (e.g., 20)
+    At least one antenna.
+        Click New antenna
+        Choose the type (Turnstile is default antenna included with Helium Conversion Kits)
+        Add a range (VHF is default for Helium Conversion Kits)
+        Press Save changes
+
+Fill out the form, click Submit and your station will be added to the Network. You can leave the other settings unchanged for now. 
+
+# Configuring the desky-client 
+
+SSH into your Helium Hotspot 
+
+Basic Configuration
+
+Then the actual configuration of the station:
+
+    Run sudo desky-setup again.
+    Use the up/down and TAB keys to navigate, and Enter to select an option.
+    Basic Configuration:
+        DEFLY_API_TOKEN: After logging in to network.satnogs.org, this is in the upper right under "API Key" [no longer exsists? Add direct link]
+        DEFLY_SOAPY_RX_DEVICE: driver=rtlsdr
+        DEFLY_RX_SAMP_RATE: 2.048e6
+        DEFLY_RX_GAIN: Refer "Setting the gain" section below.
+        DEFLY_STATION_ELEV: station elevation in meters
+        DEFLY_STATION_ID: The ID number of your station.
+        DEFLY_STATION_LAT and LON: Latitude and Longitude in decimal degrees
+
+Then back to the main menu and Apply to save the configuration. Ansible will run and update the system. If you want to quit, just keep pressing cancel to exit.
+
+# Setting the gain 
+
+The next step is to set the gain on the RTL SDR. The aim here (in the majority of cases) is to set the gain of your station to maximise sensitivity (best noise figure), but without limiting the available dynamic range of your station due to your local noise floor. This can be achieved in a fairly simple manner, by watching the level of the receivers noise floor as you slowly increase the receiver gain. At some point the noise floor will start to rise - at this point increasing the gain any further will of no use - you will only increase the noise level, and eat into your receiver's available dynamic range (for a RTLSDR, theoretically only 48 dB).
+
+There may be situations where strong local interferers may require the use of a lower gain setting to avoid intermodulation products appearing in the passband, though these cases would be better solved with a suitable bandpass filter somewhere in the receive chain.
+
+First, it is good to know the available gain range of your SDR. This can be accomplished by running SoapySDRUtil --probe, which provides a considerable amount of information about the connected SDR: 
+
+pi@desky:~ $ SoapySDRUtil --probe
+######################################################
+## Soapy SDR -- the SDR abstraction library
+######################################################
+
+Probe device
+
+Found Rafael Micro R820T tuner
+[INFO] [UHD] linux; GNU C++ version 8.2.0; Boost_106700; UHD_3.13.1.0-3
+Found Rafael Micro R820T tuner
+
+----------------------------------------------------
+-- Device identification
+----------------------------------------------------
+  driver=RTLSDR
+  hardware=RTLSDR
+  origin=https://github.com/pothosware/SoapyRTLSDR
+  rtl=0
+
+----------------------------------------------------
+-- Peripheral summary
+----------------------------------------------------
+  Channels: 1 Rx, 0 Tx
+  Timestamps: NO
+  Other Settings:
+     * Direct Sampling - RTL-SDR Direct Sampling Mode
+       [key=direct_samp, default=0, type=string, options=(0, 1, 2)]
+     * Offset Tune - RTL-SDR Offset Tuning Mode
+       [key=offset_tune, default=false, type=bool]
+     * I/Q Swap - RTL-SDR I/Q Swap Mode
+       [key=iq_swap, default=false, type=bool]
+
+----------------------------------------------------
+-- RX Channel 0
+----------------------------------------------------
+  Full-duplex: YES
+  Supports AGC: YES
+  Stream formats: CS8, CS16, CF32
+  Native format: CS8 [full-scale=128]
+  Stream args:
+     * Buffer Size - Number of bytes per buffer, multiples of 512 only.
+       [key=bufflen, units=bytes, default=262144, type=int]
+     * Ring buffers - Number of buffers in the ring.
+       [key=buffers, units=buffers, default=15, type=int]
+     * Async buffers - Number of async usb buffers (advanced).
+       [key=asyncBuffs, units=buffers, default=0, type=int]
+  Antennas: RX
+  Full gain range: [0, 49.6] dB
+    TUNER gain range: [0, 49.6] dB
+  Full freq range: [23.999, 1764] MHz
+    RF freq range: [24, 1764] MHz
+    CORR freq range: [-0.001, 0.001] MHz
+  Sample rates: 0.25, 1.024, 1.536, 1.792, 1.92, 2.048, 2.16, 2.56, 2.88, 3.2 MSps
+  
+The above output is for a RTLSDR, and we can see that there is information on the 'Full gain range', and 'TUNER' gain. The Full gain setting is an 'abstracted' gain range, which in this case just directly links to the 'TUNER' gain, as that is the only gain setting presented by the RTLSDR driver. Other SDRs (e.g. AirSpy) may present more gain controls. Anyway, we can see that the gain range is 0 through 49.6 dB. It's quite possible that there are only discrete gain steps within this range (and this is very true for the RTLSDR), but SoapySDR will hide that from us and automatically use the nearest valid setting.
+
+Next up, we want a way of seeing a live spectrum from the SDR. This might be difficult, especially if you're just gone and mounted a RTLSDR in a metal box up a pole! Well, SoapySDR comes to the rescue again with SoapySDR Server - this allows us to serve up the SDR on the network, and access it with a client.
+
+Note: SoapySDR Server is not currently installed by default. It can be installed by running the commands: 
+
+$ sudo apt-get install soapyremote-server
+
+By default, SoapySDR Server may be configured to startup on boot. We probably don't want this, so run the following commands to ensure it is stopped, and will not startup on boot: 
+
+$ sudo systemctl stop soapyremote-server
+$ sudo systemctl disable soapyremote-server
+
+(These commands may result in errors indicating that the server wasn't running and/or enabled. This is OK!
+
+CubicSDR is a good cross-platform client that can connect to a SoapySDR Server, and you can download the latest release by clicking here. https://github.com/cjcliffe/CubicSDR/releases
+
+On the RPi, you can manually start SoapySDR Server by running: SoapySDRServer --bind="0.0.0.0:55132" Leave this running.
+
+Note: If you need to use the Bias-T option of an RTLSDR, you will need to activate this manually prior to running SoapySDRServer. This can be accomplished by compiling the rtl_biast utility, and running it with ./rtl_biast -b 1
+
+Open up CubicSDR on another computer, on the same network as your Helium Hotspot. It will pop up a window asking you to select a SDR device. With any luck, it will have auto-detected your SoapySDR Server, and it will show up in the 'Local Net' list. If not, you will need to select 'Remote', click 'Add', and then enter the IP address of your hotspot. You should then have a SDR showing up in the list. 
+
+
+
+You should now be able to click 'Start', and end up with a waterfall display. If the waterfall appears to glitch, or show a 'lumpy' pattern near the centre of the display, then this indicates packet loss between the SatNOGS station and your client. Try and connect via a direct LAN connection if possible. In the settings menu of CubicSDR, disable "Automatic Gain" if it is set. This will allow manual control over the gain settings via sliders that will show up at the top left of the window. 
+
+Set the frequency to something suitable for your station. For example, if you are setting up a 70cm station, set a frequency of 437 MHz (437000000 Hz). For a 2m station, try 146 MHz. Drag the gain slider so that the gain (visible at the bottom of the slider) is set to zero. Then, slowly drag it up until you see the noise floor start to rise. The gain at which this occurs is the gain you should set in DEFLY_RF_GAIN.
+
+To set the gain in desky go back to the RPI and stop the soapy remote server with ctrl-c. Run desky-setup, open the 'Advanced' menu, then the Radio settings. Set the gain in the DESKY_RF_GAIN variable. 
+
+# Hardware Configuration 
+
+Basic hardware configuration is Antenna > Short coax > LNA > Coax > RTL SDR -> Helium Hotspot. 
+
+# Testing the station 
+
+Now that you have the hardware and software up and running, go ahead and schedule some passes. Navigate to your station page, and click on the Schedule button on the right side of some promising passes. The green and red bars beneath the satellite name is a quick visual indication of the number of Good and Bad passes on the network. Unfortunately, this data is not time-stamped at all, so a satellite that had a lot of Good observations a long time ago, but recently died, would still show as Green. 
+
+# Recommended Satellite Transmitters for Station Performance Benchmarking
+
+A few known-good satellite transmitters to test with with (as of November 2020) are:
+
+    For a station operating on the VHF Band:
+        NOAA 15, 18, 19- The APT transmitters (very strong signals - considered to be the 'hello world' of satellite observations)
+        ISS - If operating, the APRS transmitter is very strong, but may only transmit intermittently throughout a pass.
+        CAS4A / CAS4B - Continuous CW and GMSK transmitters - a good example of a 'weaker' cube-sat signal.
+        Max Valier Sat - Another weaker CW signal.
+    For a station operating on the UHF band:
+        FalconSat3 - The FSK downlink transmits continuously, and is an excellent benchmark for overall station performance. A high performing station may receive upwards of 600 data packets in a single pass.
+        SpooQy-1 - Regular GMSK packets.
+        OPS-SAT - Regular GMSK packets, fairly strong.
+        ARMADILLO - A higher data rate signal, requiring a fairly good SNR to be able to decode the (hillarious) 19.2kbps GFSK packets.
+        LUSAT - CW Signal Generator in space. Continuous, strong signal. 
+        
+# Mitigating Local Noise 
+
+If you are finding the signal-to-noise of your observation seems a bit low, or you aren't seeing any signals from the known-good satellites listed above, then your station may be limited by local electrical noise. A more comprehensive guide on how to identify sources of noise is being developed, but as a starting point:
+
+    Turn on/off nearby electrical devices while an observation is running (or while looking at a waterfall using CubicSDR as described further above).
+    Common sources of electrical noise include:
+        LED lightbulbs or floodlights
+        USB Chargers (or really any switch-mode power supply)
+        Power-over-Ethernet systems
+        Unshielded ethernet cables (or even shielded cables)
+        HDMI and DVI cables, and computer monitors.
+        
+ 
+
+
+
