@@ -1,0 +1,30 @@
+# Installation Instructions for Bias Tee 
+
+    Log into your DeSky station either directly or via SSH
+    If your station does not have cmake installed, install cmake with sudo apt install cmake
+    Clone the source for the Bias-T software switch with git clone https://github.com/rtlsdrblog/rtl_biast
+    cd rtl_biast
+    mkdir build
+    cd build
+    cmake .. (if you get a LibUSB 1.0 required to compile rtl-sdr error here, then do sudo apt install libusb-1.0-0-dev prior to attempting cmake .. again)
+    make
+
+
+The software switch should now be installed in the "src" directory. If you cd src, you can turn on the bias-t with the command ./rtl_biast -b 1 and turn it off with ./rtl_biast -b 0. Note that the developers of this switch have warned against attempting to sudo make install so that this command can be executed from ouside the src directory. Testing has shown this warning to be accurate, so don't plan on running these commands from anywhere but the src directory, or else be sure to use the full path.
+
+Switching the Bias-T on should yield between 4.5V and 5.0V across the center conductor and shield of the coax. The voltage should rise almost instantly. When switched off, the voltage seems to decrease gradually, over 5 to 10 seconds.
+Instructions to activate the bias-t for SatNogs Observations automatically:
+
+    Log into your Desky station either directly or via SSH
+    sudo desky-setup
+    select Advanced
+    for Radio ->DESKY_RF_GAIN, enter a low gain value supported by your RTL-SDR.com V3 dongle (entering rtl_test at the command line prior to starting satnogs-setup will give you all allowable values of RF gain) and select Ok
+    for Scripts ->DESKY_PRE_OBSERVATION_SCRIPT, enter /home/pi/rtl_biast/build/src/rtl_biast -b 1 and select Ok
+    for Scripts ->DESKY_POST_OBSERVATION_SCRIPT, enter /home/pi/rtl_biast/build/src/rtl_biast -b 0 and select Ok
+    Select Back
+    Select Apply (allow system to update and hit enter when prompted)
+    Select Back
+
+Your station is now set up to turn the Bias-T on for each scheduled observation (using the DESKY_PRE_OBSERVATION_SCRIPT string) and then turn it off at the conclusion of each observation (using the DESKY_POST_OBSERVATION_SCRIPT).
+
+You should now schedule several observations to fine tune the DESKY_RF_GAIN value to get the best S/N performance for your station. Some have reported needing zero RF gain, others have reported low RF gain required (between 5 and 10 db), and others have said they see little benefit even with very high gain. Each station will be different. 
